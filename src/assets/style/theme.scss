@@ -1,0 +1,30 @@
+@import "base-dark.scss";
+@import "base-light.scss";
+
+//----------------------------------top nav bg&&color 设置----------------------------------------->start
+@mixin app-top-nav() {
+    #app[theme-style="dark"] & {
+        background-color: $dark-top-nav-bg-color;
+        color: $dark-top-nav-text-color;
+        border-bottom: $dark-top-nav-bottom-border;
+    }
+    #app[theme-style="light"] & {
+        background-color: $light-top-nav-bg-color;
+        color: $light-top-nav-text-color;
+        border-bottom: $light-top-nav-bottom-border;
+    }
+}
+//----------------------------------top nav bg&&color 设置----------------------------------------->end
+
+//----------------------------------main body-1 bg&&color 设置----------------------------------------->start
+@mixin app-body1() {
+    #app[theme-style="dark"] & {
+        background-color: $dark-body1-bg-color;
+        color: $dark-body1-text-color;
+    }
+    #app[theme-style="light"] & {
+        background-color: $light-body1-bg-color;
+        color: $light-body1-text-color;
+    }
+}
+//----------------------------------main body-1 bg&&color 设置----------------------------------------->end
