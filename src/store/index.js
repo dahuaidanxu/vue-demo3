@@ -7,7 +7,7 @@ export default new Vuex.Store({
   state: {
     appTestVal: '丁丁',
     appTestNum: 0,
-    appThemeType:'',
+    appThemeType: '',
     appRequestURL: {
       caseRecentData: '/testAPI/iecs-dispatch/v1.1/plan/incident/recent?ip=10.33.115.24', //24小时警情接口测试用
     }
@@ -15,6 +15,11 @@ export default new Vuex.Store({
   getters: {
   },
   mutations: {
+
+    //修改主题颜色
+    changeThemeType(state, val) {
+      state.appThemeType = val;
+    },
     change1(state, obj) {
       setTimeout(() => {
         state.appTestVal = obj.name;

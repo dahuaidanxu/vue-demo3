@@ -1,4 +1,4 @@
-<style lang="scss">
+<style scoped lang="scss">
 .main {
   @import '../assets/style/theme.scss';
   width: 100%;

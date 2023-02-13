@@ -1,6 +1,11 @@
 @import "base-dark.scss";
 @import "base-light.scss";
 
+.amap-logo,
+.amap-copyright {
+  display: none !important;
+}
+
 //----------------------------------top nav bg&&color 设置----------------------------------------->start
 @mixin app-top-nav() {
     #app[theme-style="dark"] & {
