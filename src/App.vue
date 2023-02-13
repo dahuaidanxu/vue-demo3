@@ -107,6 +107,9 @@ export default {
       let dom = document.getElementById("app");
       dom?.setAttribute("theme-style", bool ? "light" : "dark");
     }
+
+
+    this.$store.dispatch('asyncRecentIncidentList', 1000 * 60);
   },
   components: {},
 };

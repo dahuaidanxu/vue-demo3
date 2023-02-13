@@ -30,9 +30,10 @@ export default {
     };
   },
   mutations: {
-    changeMapTheme() {},
+
   },
   mounted: function () {
+    //初始化底图
     AMapLoader.load({
       key: "aae6a7105688bf15a2ba841d2e98ee23", // 申请好的Web端开发者Key，首次调用 load 时必填
       version: "2.0", // 指定要加载的 JSAPI 的版本，缺省时默认为 1.4.15
@@ -53,6 +54,7 @@ export default {
       ], // 需要使用的的插件列表，如比例尺'AMap.Scale'等
     })
       .then((AMap) => {
+        //设置底图属性
         this.map = new AMap.Map("mapContainer", {
           resizeEnable: true, //是否监控地图容器尺寸变化
           zoom: 9.6, //初始地图级别
@@ -64,7 +66,7 @@ export default {
               : "amap://styles/blue",
         });
 
-        // let colors = {};
+        //南京市区域图边框效果初始化
         let disProvince = new AMap.DistrictLayer.Province({
           zIndex: 10,
           adcode: [320100],
@@ -77,21 +79,14 @@ export default {
           },
         });
 
-        disProvince.setMap(this.map);
-        // function getColorByAdcode(adcode) {
-        //   if (!colors[adcode]) {
-        //     var gb = Math.random() * 155 + 50;
-        //     colors[adcode] = 'rgb(' + gb + ',' + gb + ',255,0)';
-        //   }
-
-        //   return colors[adcode];
-        // };
+        disProvince.setMap(this.map);//区域图加入到地图中
       })
       .catch((e) => {
         console.log(e);
       });
   },
   watch: {
+    //监听换肤效果，切换底图效果
     "$store.state.appThemeType"() {
       // console.log(this.$store.state.appThemeType);
       this.map.setMapStyle(
@@ -100,6 +95,15 @@ export default {
           : "amap://styles/blue"
       );
     },
+
+    //监听刷新的警情列表
+    "$store.state.appRecentIncidentList"() {
+      //警情列表上图
+    },
   },
+  destroyed() {
+    this.map.destroy();//销毁地图
+
+  }
 };
 </script>
