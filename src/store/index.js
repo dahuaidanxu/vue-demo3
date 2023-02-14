@@ -10,8 +10,9 @@ export default new Vuex.Store({
     appTestNum: 0,
     appThemeType: '',  //主题类型
     appRecentIncidentList: [], //24警情列表
+    appUnitList: [],//消防站列表
     appRequestURL: {
-      caseRecentData: '/testAPI/iecs-dispatch/v1.1/plan/incident/recent?ip=10.33.115.24', //24小时警情接口测试用
+      caseRecentData: '/testAPI/iecs-dispatch/v1.1/plan/incident/recent?ip=10.32.63.23', //24小时警情接口测试用
       convertURL_GaoDe: 'https://restapi.amap.com/v3/assistant/coordinate/convert?',//高德坐标转换API
     }
   },
@@ -32,7 +33,25 @@ export default new Vuex.Store({
         state.appTestVal = obj.name;
         state.appTestNum = obj.num;
       }, 1000)
+    },
+    //更新消防站列表
+    changeUnitList(state, list) {
+      let arr = [];
+      list.forEach(l => {
+        if (l.properties && l.properties.jd && l.properties.wd && l.properties.jgid) {
+          let flg = {
+            name: l.properties.jgjc || '无名称',
+            desc: l.properties.jgms || "无描述",
+            lng: l.properties.jd,
+            lat: l.properties.wd,
+            jgid: l.properties.jgid
+          };
+          arr.push(flg);
+        }
+      })
+      state.appUnitList = arr;
     }
+
   },
   actions: {
     asyncChange(state, obj) {
@@ -41,26 +60,23 @@ export default new Vuex.Store({
       }, 1000)
     },
     //24小时警情定时刷新
-    asyncRecentIncidentList(state, time) {
-      setInterval(() => {
-        axios({
-          method: 'get',
-          url: state.state.appRequestURL.caseRecentData,
-        }).then(async res => {
-          if (res.data.code == 0) {
-            res.data.incident.forEach(c => {
-              if (c.LASJ) {
-                c.LASJ = formatterTime(c.LASJ);
-              }
-            })
-            // let 
-            state.commit('changeRecentIncidentList', await formatterInc(res.data.incident));
-          }
-        }, error => {
-          this.$Message.error('24小时警情接口请求失败' + error);
-          state.commit('changeRecentIncidentList', []);
-        })
-      }, time)
+    asyncRecentIncidentList(state) {
+      axios({
+        method: 'get',
+        url: state.state.appRequestURL.caseRecentData,
+      }).then(async res => {
+        if (res.data.code == 0) {
+          res.data.incident.forEach(c => {
+            if (c.LASJ) {
+              c.LASJ = formatterTime(c.LASJ);
+            }
+          })
+          state.commit('changeRecentIncidentList', await formatterInc(res.data.incident));
+        }
+      }, error => {
+        this.$Message.error('24小时警情接口请求失败' + error);
+        state.commit('changeRecentIncidentList', []);
+      })
 
       function formatterTime(time) {
         let tt = new Date(time * 1);
@@ -94,7 +110,11 @@ export default new Vuex.Store({
         }
       }
     },
-
+    setIntervalRencentIncident(state, time) {
+      setInterval(() => {
+        state.dispatch('asyncRecentIncidentList');
+      }, time)
+    }
   },
   modules: {
     baseModules: {

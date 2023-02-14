@@ -43,7 +43,7 @@
     <Menu mode="horizontal" theme="dark" active-name="1" class="nav-top">
       <div class="layout-logo">
         <img class="logo" src="./assets/img/title_icon.png" alt="" srcset="" />
-        南京市消防救援支队指挥中心警情统计地图台
+        苏州市消防救援支队指挥中心警情统计地图台
       </div>
       <div class="switch-body">
         <i-switch v-model="switch2" @on-change="changeSkin" size="large">
@@ -52,7 +52,7 @@
         </i-switch>
         &nbsp;&nbsp;
         <i-switch v-model="switch1" @on-change="changeRoute" size="large">
-          <span slot="open">附页</span>
+          <span slot="open">统计</span>
           <span slot="close">主页</span>
         </i-switch>
       </div>
@@ -108,8 +108,21 @@ export default {
       dom?.setAttribute("theme-style", bool ? "light" : "dark");
     }
 
+    this.$store.dispatch("setIntervalRencentIncident", 1000 * 60 * 5);
 
-    this.$store.dispatch('asyncRecentIncidentList', 1000 * 5);
+    let type = "pub_jg_jgjbxx";
+    this.axios
+      .get(
+        `/testAPI/geoServerURL-new/geoserver/egis/wfs?service=WFS&version=1.0.0&request=GetFeature&typename=egis:${type}&outputFormat=application/json`
+      )
+      .then(
+        (res) => {
+          this.$store.commit("changeUnitList", res.data.features);
+        },
+        (error) => {
+          this.$Message.error("队站列表请求失败" + error);
+        }
+      );
   },
   components: {},
 };

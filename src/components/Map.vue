@@ -30,6 +30,7 @@ export default {
       //覆盖物群组
       overlayGroupList: {
         ol_incident24: null, //24小时警情  --key
+        incident_xiaquduizhan: null, //辖区队站
       },
       AMap: null,
     };
@@ -49,9 +50,122 @@ export default {
     },
     //点击上图警情事件
     showIncidentDetail(incident) {
-      console.log(incident);
-    },
+      // console.log(incident);
+      let type = "t_xiaofangzhan"; //表名
 
+      //展示附近的辖区消防站->事发地的路线
+      this.axios
+        .get(
+          `/testAPI/geoServerURL-new/geoserver/egis/wfs?service=WFS&version=1.0.0&request=GetFeature&typename=egis:${type}&outputFormat=application/json&CQL_FILTER=CONTAINS(geom,POINT(${incident.lng} ${incident.lat}))`
+        )
+        .then(
+          (res) => {
+            if (
+              res &&
+              res.data &&
+              res.data.features &&
+              res.data.features.length > 0
+            ) {
+              // console.log(res.data.features[0].properties.jgid);
+              this.$store.state.appUnitList.forEach((u) => {
+                if (u.jgid === res.data.features[0].properties.jgid) {
+                  //画辖区队站与轨迹
+                  this.drawXiaquDuizhan(u);
+                }
+              });
+            } else {
+              this.$Message.error("未找到该警情对应的辖区队站");
+            }
+          },
+          (error) => {
+            this.$Message.error("获取该警情所属辖区消防站请求失败" + error);
+          }
+        );
+    },
+    //画辖区队站
+    drawXiaquDuizhan(unit) {
+      const marker = {
+        lng: unit.lng,
+        lat: unit.lat,
+        title: unit.name,
+        icon: require("../assets/img/xiaquduizhan.svg"),
+        zIndex: 12,
+      };
+
+      //上图之前先清除之前已经上图的
+      this.removeOl_GaoDe("incident_xiaquduizhan");
+      //警情列表数据点位转换成marker格式
+      let markerList = this.getFormatterMarkerList("incident_xiaquduizhan", [
+        marker,
+      ]);
+      //将marker放到overlayers中&&上图显示
+      this.addResourceToOl_GaoDe(
+        "incident_xiaquduizhan",
+        this.getMarkerFormatter_GaoDe("incident_xiaquduizhan", markerList)
+      );
+    },
+    //筛选辖区队站
+    pickXiaquDuizhan(affiliation, lng, lat) {
+      if (affiliation.features.length >= 1) {
+        let unitList = JSON.parse(
+          localStorage.getItem("FIRE_DEPARTMENT_LIST") || ""
+        );
+        //剔除消防站状态不是1的，剔除经纬度有问题的
+        unitList.features = unitList.features.filter(
+          (item) =>
+            item.properties.jlzt == 1 &&
+            this.commonService.isLnglatLegal(
+              item.properties.jd,
+              item.properties.wd
+            )
+        );
+        affiliation.features.forEach((a) => {
+          unitList.features.forEach((u) => {
+            if (a.properties.jgid == u.properties.jgid) {
+              a.jd = u.properties.jd;
+              a.wd = u.properties.wd;
+              a.jgjc = u.properties.jgjc;
+            }
+          });
+        });
+
+        if (affiliation.features.length > 1) {
+          let flg = false;
+          //2022/02/24 辖区图层有两个以上的取altmode为1的队站
+          affiliation.features.forEach((u) => {
+            if (u.properties.altmode == 1) {
+              flg = true;
+
+              affiliation.features[0] = u;
+            }
+          });
+
+          //如果获取的辖区图层里面没有altmode为1的，那就按照老方法，取距离近的
+          if (!flg) {
+            affiliation.features.forEach((u) => {
+              if (u.jd && u.wd) {
+                u["line_distance"] = this.mapService.getDistance_GaoDe(
+                  lng,
+                  lat,
+                  u.jd,
+                  u.wd
+                );
+              }
+            });
+
+            affiliation.features = this.commonService.getSortArr(
+              affiliation.features,
+              "line_distance",
+              true
+            );
+          }
+        }
+
+        return affiliation.features[0];
+      } else {
+        return null;
+      }
+    },
     //点位上图需要按照高德的形状修改
     getFormatterMarkerList(type, arrList) {
       let markerList = [];
@@ -80,6 +194,34 @@ export default {
               AJBH: r.AJBH,
               AJLX: r.AJLX ? r.AJLX : "其它类型",
               ZDDWID: r.ZDDWID || 0,
+            };
+            markerList.push(marker);
+          });
+          break;
+        case "incident_xiaquduizhan":
+          arrList.forEach((r) => {
+            // 创建一个 Icon
+            let startIcon = new this.AMap.Icon({
+              // 图标尺寸
+              // size: new  this.AMap.Size(30, 35),
+              // 图标的取图地址
+              image: r.icon
+                ? r.icon
+                : require("../assets/img/xiaquduizhan.svg"),
+              // 图标所用图片大小
+              imageSize: new this.AMap.Size(35, 40),
+              // 图标取图偏移量
+              // imageOffset: new  this.AMap.Pixel(-9, -3)
+            });
+            const marker = {
+              lng: r.lng,
+              lat: r.lat,
+              title: r.title,
+              icon: startIcon,
+              icon_: r.icon
+                ? r.icon
+                : require("../assets/img/xiaquduizhan.svg"),
+              zIndex: r.zIndex,
             };
             markerList.push(marker);
           });
@@ -128,7 +270,21 @@ export default {
           zIndex: item.zIndex ? item.zIndex : 1,
         });
         markerList.push(marker);
-
+        marker.on("mouseover", function () {
+          if (type == "ol_incident24" || type == "incident_xiaquduizhan") {
+            if (that.getInfoWindow_GaoDe(type, item)) {
+              that.InfoWindow = that.getInfoWindow_GaoDe(type, item);
+              that.openInfoWindow_GaoDe(that.InfoWindow, item.lng, item.lat);
+            }
+          }
+        });
+        marker.on("mouseout", function () {
+          if (type == "ol_incident24" || type == "incident_xiaquduizhan") {
+            if (that.getInfoWindow_GaoDe(type, item)) {
+              that.closeInfoWindow_GaoDe(that.InfoWindow, item.lng, item.lat);
+            }
+          }
+        });
         marker.on("click", function () {
           if (type == "ol_incident24") {
             that.showIncidentDetail(item);
@@ -149,82 +305,6 @@ export default {
     getInfoWindow_GaoDe(type, obj) {
       let content = [];
       switch (type) {
-        case "pub_jg_jgjbxx": //消防机构
-          // 折线的节点坐标数组，每个元素为 AMap.LngLat 对象
-          // lng: r.properties.gis_x,  //经纬度;lat: r.properties.gis_y,//经纬度;icon: icon,//图标;title: r.properties.jgmc,//机构名称;desc: r.properties.jgms,//机构描述;address: r.properties.jgdz,//地址;contacts: r.properties.lxr,//责任人;contacts_phone: r.properties.lxdh,//责任人电话;refreshTime: r.properties.sjc.substring(0, 10) //更新时间
-          content = [
-            "<div style='max-width:300px'><img src='" +
-              obj.icon +
-              "'><span style='padding-left:5px;font-size: 14px;font-weight:600;display:inline-block;height:24px;line-height:24px;'>消防机构</span> ",
-            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;'>" +
-              obj.title +
-              "</b>",
-            "<span style='padding-bottom:5px;display: inline-block;'>联系人电话 : " +
-              obj.contacts_phone +
-              "</span></div></div>",
-            // "<span style='padding-bottom:5px;display: inline-block;'>更新时间:&nbsp;" + obj.refreshTime + "</span></div></div>"
-          ];
-          break;
-        case "pub_sy_shsxx": //消防栓  地址、类型、状态、取水方式、时间
-          // 折线的节点坐标数组，每个元素为 AMap.LngLat 对象
-          content = [
-            "<div><img src='" +
-              obj.icon +
-              "'><span style='padding-left:5px;font-size: 14px;font-weight:600;display:inline-block;height:24px;line-height:24px;'>消防栓</span>",
-            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;'>" +
-              obj.title +
-              "</b>",
-            "<span style='padding-bottom:5px;display: inline-block;'>地址:&nbsp;" +
-              obj.address +
-              "</span>",
-            // "<span style='padding-bottom:5px;display: inline-block;'>水源类型编码:&nbsp;" + obj.type + "</span>",
-            // "<span style='padding-bottom:5px;display: inline-block;'>水源状态:&nbsp;" + obj.status + "</span>",
-            // "<span style='padding-bottom:5px;display: inline-block;'>取水方式:&nbsp;" + obj.fetch + "</span>",
-            "<span style='padding-bottom:5px;display: inline-block;'>更新时间:&nbsp;" +
-              obj.refreshTime +
-              "</span></div></div>",
-          ];
-          break;
-        case "pub_fh_xfz": //微型消防站
-          // 折线的节点坐标数组，每个元素为 AMap.LngLat 对象
-          content = [
-            "<div><img src='" +
-              obj.icon +
-              "'><span style='padding-left:5px;font-size: 14px;font-weight:600;display:inline-block;height:24px;line-height:24px;'>微站</span>",
-            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;'>" +
-              obj.title +
-              "</b>",
-            "<span style='padding-bottom:5px;display: inline-block;'>编号:&nbsp;" +
-              obj.areaCode +
-              "</span>",
-            "<span style='padding-bottom:5px;display: inline-block;'>所属区域:&nbsp;" +
-              obj.areaCode +
-              "</span>",
-            "<span style='padding-bottom:5px;display: inline-block;'>联系人:&nbsp;" +
-              obj.lxr +
-              "</span>",
-            "<span style='padding-bottom:5px;display: inline-block;'>联系电话:&nbsp;" +
-              obj.phone +
-              "</span>",
-            "<span style='padding-bottom:5px;display: inline-block;'>状态:&nbsp;" +
-              (obj.zt == 1 ? "可用" : "不可用") +
-              "</span>",
-            "<span style='padding-bottom:5px;display: inline-block;'>备注:&nbsp;" +
-              obj.bz +
-              "</span>",
-            "<span style='padding-bottom:5px;display: inline-block;'>更新时间:&nbsp;" +
-              obj.refreshTime +
-              "</span></div></div>",
-          ];
-          break;
-        case "t_catalog_list": //固定摄像头
-          content = [
-            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;'>" +
-              obj.title +
-              "</b>",
-            "</div>",
-          ];
-          break;
         case "ol_incident24": //附近警情
           // 折线的节点坐标数组，每个元素为 AMap.LngLat 对象
           content = [
@@ -233,22 +313,17 @@ export default {
               "'><b style='font-size:25px;padding-bottom:10px;display: inline-block;padding-left:10px'>" +
               obj.AJLX +
               "</b> ",
-            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;'>" +
+            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;color:#000;'>" +
               obj.title +
               "</b>",
-            "<div><button id='ol_incident24' style='color: #fff;background: #1890ff;border-color: #1890ff;text-shadow: 0 -1px 0 rgb(0 0 0 / 12%);box-shadow: 0 2px 0 rgb(0 0 0 / 5%);padding: 8px 20px;outline: 0;box - shadow: none;float: right; ' data='" +
-              JSON.stringify(obj) +
-              "'>查看详情</button><button id='ol_incident24_detail' style='color: #fff;background: #ff6d18;border-color: #ffb818;margin-right:10px;text-shadow: 0 -1px 0 rgb(0 0 0 / 12%);box-shadow: 0 2px 0 rgb(0 0 0 / 5%);padding: 8px 20px;outline: 0;box - shadow: none;float: right; ' data='" +
-              JSON.stringify(obj) +
-              "'>单位信息</button></div>",
-            "</div>",
+            "</div></div>",
           ];
           break;
         case "incident_xiaquduizhan": //辖区队站
           // 折线的节点坐标数组，每个元素为 AMap.LngLat 对象
           content = [
-            "<div><img src='" + obj.icon + "'> ",
-            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;'>" +
+            "<div><img src='" + obj.icon_ + "'> ",
+            "<div style='padding:0px 4px'><b style='font-size:18px;padding-bottom:10px;display: inline-block;color:#000;'>" +
               obj.title +
               "</b>",
             "</div></div>",
@@ -264,6 +339,13 @@ export default {
         offset: new this.AMap.Pixel(0, 0),
       });
       return infoWindow;
+    },
+    /**
+     * 关闭自定义窗体
+     * @params infoWindow 窗体对象
+     */
+    closeInfoWindow_GaoDe(infoWindow, lng, lat) {
+      infoWindow.close(this.currentMap, [lng, lat]);
     },
     /**
      * 打开自定义窗体
@@ -300,7 +382,7 @@ export default {
         this.map = new this.AMap.Map("mapContainer", {
           resizeEnable: true, //是否监控地图容器尺寸变化
           zoom: 9.6, //初始地图级别
-          center: [118.80156, 31.962938], //初始地图中心点
+          center: [120.620958, 31.450552], //初始地图中心点
           viewMode: "3D", // 地图模式
           mapStyle:
             localStorage.getItem("APP-SKIN-TYPE") == "light"
@@ -311,7 +393,7 @@ export default {
         //南京市区域图边框效果初始化
         let disProvince = new this.AMap.DistrictLayer.Province({
           zIndex: 10,
-          adcode: [320100],
+          adcode: [320500],
           depth: 2,
           styles: {
             fill: ["rgb(0,0,0,0)"],
@@ -322,6 +404,8 @@ export default {
         });
 
         disProvince.setMap(this.map); //区域图加入到地图中
+
+        this.$store.dispatch("asyncRecentIncidentList");
       })
       .catch((e) => {
         console.log(e);
@@ -330,7 +414,6 @@ export default {
   watch: {
     //监听换肤效果，切换底图效果
     "$store.state.appThemeType"() {
-      // console.log(this.$store.state.appThemeType);
       this.map.setMapStyle(
         this.$store.state.appThemeType == "light"
           ? "amap://styles/normal"
@@ -341,7 +424,7 @@ export default {
     //监听刷新的警情列表
     "$store.state.appRecentIncidentList"() {
       //警情列表上图
-      if (this.$store.state.appRecentIncidentList.length > 0) {
+      if (this.$store.state.appRecentIncidentList.length > 0 && this.map) {
         this.incidentMarker(this.$store.state.appRecentIncidentList);
       } else {
         this.removeOl_GaoDe("ol_incident24");
