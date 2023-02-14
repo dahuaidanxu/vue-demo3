@@ -51,6 +51,8 @@ export default {
     showIncidentDetail(incident) {
       console.log(incident);
     },
+
+    //点位上图需要按照高德的形状修改
     getFormatterMarkerList(type, arrList) {
       let markerList = [];
       switch (type) {
