@@ -43,7 +43,7 @@
     <Menu mode="horizontal" theme="dark" active-name="1" class="nav-top">
       <div class="layout-logo">
         <img class="logo" src="./assets/img/title_icon.png" alt="" srcset="" />
-        南京消防地图台
+        南京市消防救援支队指挥中心警情统计地图台
       </div>
       <div class="switch-body">
         <i-switch v-model="switch2" @on-change="changeSkin" size="large">
@@ -109,7 +109,7 @@ export default {
     }
 
 
-    this.$store.dispatch('asyncRecentIncidentList', 1000 * 60);
+    this.$store.dispatch('asyncRecentIncidentList', 1000 * 5);
   },
   components: {},
 };
