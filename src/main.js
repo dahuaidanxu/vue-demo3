@@ -3,14 +3,19 @@ import App from './App.vue'
 import router from './router'
 import store from './store'
 import './utils/axios'
+import * as echarts from 'echarts';
 import iView from 'iview';
 import 'iview/dist/styles/iview.css';    // 使用 CSS
 import './assets/style/base-dark.scss';
 import './assets/style/base-light.scss';
 import './assets/style/theme.scss';
 
+
 Vue.config.productionTip = false
+
 Vue.use(iView);
+
+Vue.prototype.$echarts = echarts;
 new Vue({
   router,
   store,
